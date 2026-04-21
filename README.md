@@ -1,1 +1,17 @@
 # json-visualizer
+> Very straight forward prompt
+> ```
+> Create a single page HTML that can do the following without any external library and other public scripts, not CSS support library, nothing, just single HTML page in a folder with nothing else.
+> 
+> 1. There should be 2 columns layout
+> 
+> 2. The left panel is just a huge input box that allow user to input any text. Having JSON syntax highlight is a plus.
+> 
+> 3. The right panel react when there are new text input to the left panel. When the left panel is not a valid JSON, there should be a red alert on the top saying the input in not a valid JSON. When the left panel is a valid JSON, it should convert the JSON into a single layer JSON, all the nested object should be flattened and then on the right panel show show a table with one column showing the JSON key and another column showing the JSON value. If the JSON value is a HTML string, it should be rendered out.
+> ```
+
+| LLM            | The chat                                                                                         | The result                                                   |
+|----------------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| Gemini 3.1 Pro | https://gemini.google.com/share/0c9745914225                                                     | [Go](https://jasonycw.github.io/json-visualizer/gemini/)     |
+| Perplexity     | https://www.perplexity.ai/search/create-a-single-page-html-that-t08yXELHR72YQCJi5GreBw?preview=1 | [Go](https://jasonycw.github.io/json-visualizer/perplexity/) |
+| Grok           | https://grok.com/share/c2hhcmQtMg_d8c58954-8961-49e0-a8e8-fccdb0bec59e                           | [Go](https://jasonycw.github.io/json-visualizer/grok/)       |
