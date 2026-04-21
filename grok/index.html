@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Flattener • Live Single-File</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;family=Space+Grotesk:wght@500&amp;display=swap');
+        
+        :root {
+            --bg: #0f0f12;
+            --panel: #17171c;
+            --text: #e2e2e8;
+            --accent: #00d4ff;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            height: 64px;
+            background: var(--panel);
+            border-bottom: 1px solid #25252b;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: -1px;
+            background: linear-gradient(90deg, #00d4ff, #00ff9d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .main {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+        
+        .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 20px;
+            gap: 12px;
+        }
+        
+        .left {
+            border-right: 1px solid #25252b;
+        }
+        
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 500;
+            color: #a0a0b0;
+            letter-spacing: 0.5px;
+        }
+        
+        .json-editor {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            background: #1c1c24;
+            border: 2px solid #25252b;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 
+                0 10px 30px -10px rgba(0, 212, 255, 0.15),
+                inset 0 2px 0 rgba(255,255,255,0.03);
+            font-family: 'Space Grotesk', ui-monospace, monospace;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        
+        .json-editor pre,
+        .json-editor textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            margin: 0;
+            font-size: inherit;
+            line-height: inherit;
+            font-family: inherit;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow: auto;
+            tab-size: 4;
+        }
+        
+        .json-editor pre {
+            background: #1c1c24;
+            color: #e2e2e8;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .json-editor textarea {
+            background: transparent;
+            color: transparent;
+            caret-color: #00d4ff;
+            z-index: 2;
+            resize: none;
+            border: none;
+            outline: none;
+            box-shadow: none;
+        }
+        
+        .json-editor pre .key     { color: #79b8ff; }
+        .json-editor pre .string  { color: #ff9f7a; }
+        .json-editor pre .number  { color: #9fe89f; }
+        .json-editor pre .boolean { color: #ff9fe8; }
+        .json-editor pre .null    { color: #c9c9ff; }
+        
+        .right {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #alert {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: #3a1a1f;
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
+        }
+        
+        #alert::before {
+            content: "⚠️";
+            font-size: 20px;
+        }
+        
+        #result {
+            flex: 1;
+            background: #1c1c24;
+            border-radius: 12px;
+            border: 2px solid #25252b;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            box-shadow: 0 10px 30px -10px rgba(0, 212, 255, 0.15);
+        }
+        
+        #result-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #25252b;
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #result-header .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00d4ff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            flex: 1;
+            overflow: auto;
+        }
+        
+        thead {
+            position: sticky;
+            top: 0;
+            background: #1c1c24;
+            z-index: 10;
+        }
+        
+        th {
+            text-align: left;
+            padding: 16px 24px;
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            color: #a0a0b0;
+            text-transform: uppercase;
+            border-bottom: 1px solid #25252b;
+        }
+        
+        tr {
+            border-bottom: 1px solid #25252b;
+        }
+        
+        td {
+            padding: 16px 24px;
+            vertical-align: top;
+            font-family: ui-monospace, monospace;
+            font-size: 14px;
+        }
+        
+        td.key {
+            color: #79b8ff;
+            font-weight: 500;
+            width: 35%;
+        }
+        
+        td.value {
+            color: #e2e2e8;
+            word-break: break-all;
+            max-width: 0;
+        }
+        
+        .html-render {
+            background: #25252b;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            line-height: 1.4;
+        }
+        
+        .empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 15px;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .status {
+            font-size: 13px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            background: #25252b;
+            color: #00d4ff;
+            font-weight: 500;
+        }
+        
+        .copy-btn {
+            background: transparent;
+            border: 1px solid #25252b;
+            color: #a0a0b0;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background: #25252b;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">FLATTEN<span style="color:#00ff9d">.</span>JSON</div>
+        <div style="flex:1"></div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#00d4ff; background:#25252b; padding:6px 16px; border-radius:9999px;">
+            <div style="width:6px; height:6px; background:#00d4ff; border-radius:50%; animation: pulse 1.5s infinite;"></div>
+            LIVE • NO LIBRARIES • SINGLE FILE
+        </div>
+        <button onclick="loadDemo()" 
+                style="background:#25252b; border:none; color:#fff; padding:8px 20px; border-radius:8px; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <span>📋</span> Load Demo JSON
+        </button>
+    </header>
+
+    <div class="main">
+        <!-- LEFT PANEL -->
+        <div class="column left">
+            <div class="panel-header">
+                <div>INPUT JSON</div>
+                <div class="status" id="input-status">Waiting for input...</div>
+            </div>
+            
+            <div class="json-editor" id="editor">
+                <pre id="highlight"><code></code></pre>
+                <textarea id="input" spellcheck="false" placeholder='Paste or type any JSON here...&#10;&#10;Example:&#10;{&#10;  "name": "Grok",&#10;  "nested": {&#10;    "info": "&lt;h2&gt;Hello from rendered HTML!&lt;/h2&gt;"&#10;  }&#10;}'></textarea>
+            </div>
+            
+            <div style="font-size:12px; color:#666; display:flex; justify-content:space-between; padding:0 4px;">
+                <div>Real-time syntax highlighting • Pure vanilla JS</div>
+                <div onclick="clearInput()" style="cursor:pointer; text-decoration:underline;">Clear</div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="column right">
+            <div id="alert">
+                <strong>Invalid JSON</strong> — The input cannot be parsed. Please fix the syntax.
+            </div>
+            
+            <div id="result">
+                <div id="result-header">
+                    <span class="dot"></span>
+                    FLATTENED SINGLE-LAYER JSON
+                    <div style="flex:1"></div>
+                    <button onclick="copyFlattened()" class="copy-btn">📋 Copy table as CSV</button>
+                </div>
+                
+                <div id="table-wrapper" style="flex:1; overflow:auto;">
+                    <!-- Table injected by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === JSON SYNTAX HIGHLIGHTER (pure vanilla) ===
+        function syntaxHighlight(json) {
+            if (!json) return '';
+            json = json
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
+            return json.replace(
+                /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+                function (match) {
+                    let cls = 'number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'key';
+                        } else {
+                            cls = 'string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'null';
+                    }
+                    return `<span class="${cls}">${match}</span>`;
+                }
+            );
+        }
+        
+        // === FLATTEN JSON (recursive, handles objects + arrays) ===
+        function flattenJSON(obj, prefix = '', result = {}) {
+            if (obj === null || typeof obj !== 'object') {
+                result[prefix || '(root)'] = obj;
+                return result;
+            }
+            
+            if (Array.isArray(obj)) {
+                obj.forEach((value, index) => {
+                    const newKey = prefix ? `${prefix}[${index}]` : `[${index}]`;
+                    flattenJSON(value, newKey, result);
+                });
+                return result;
+            }
+            
+            // Plain object
+            Object.keys(obj).forEach(key => {
+                const newKey = prefix ? `${prefix}.${key}` : key;
+                flattenJSON(obj[key], newKey, result);
+            });
+            
+            return result;
+        }
+        
+        // === ESCAPE HTML for safe display ===
+        function escapeHtml(unsafe) {
+            if (unsafe == null) return 'null';
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        // === DETECT IF VALUE IS HTML STRING ===
+        function isHTMLString(value) {
+            if (typeof value !== 'string') return false;
+            const trimmed = value.trim();
+            // Must contain at least one HTML tag
+            return /<([a-z][\w-]*)(?:\s[^>]*)?>[\s\S]*<\/\1>|<[a-z][\w-]*[^>]*\/?>|&lt;[a-z]/i.test(trimmed);
+        }
+        
+        // === BUILD THE FLATTENED TABLE ===
+        function buildTable(flattened) {
+            const wrapper = document.getElementById('table-wrapper');
+            
+            if (Object.keys(flattened).length === 0) {
+                wrapper.innerHTML = `
+                    <div class="empty">
+                        <div style="font-size:42px; opacity:0.2;">📭</div>
+                        <div>Empty or primitive JSON</div>
+                        <div style="font-size:13px;">Flattened object will appear here</div>
+                    </div>`;
+                return;
+            }
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:38%">KEY PATH</th>
+                            <th>VALUE (rendered if HTML)</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            // Sort keys for predictable order
+            Object.keys(flattened)
+                .sort((a, b) => a.localeCompare(b))
+                .forEach(key => {
+                    const value = flattened[key];
+                    const isHtml = isHTMLString(value);
+                    
+                    let valueHTML = '';
+                    
+                    if (isHtml) {
+                        // Render actual HTML!
+                        valueHTML = `<div class="html-render">${value}</div>`;
+                    } else {
+                        // Safe text display
+                        const display = value === undefined ? 'undefined' : 
+                                       value === null ? 'null' : 
+                                       typeof value === 'object' ? JSON.stringify(value) : 
+                                       String(value);
+                        valueHTML = escapeHtml(display);
+                    }
+                    
+                    html += `
+                        <tr>
+                            <td class="key">${escapeHtml(key)}</td>
+                            <td class="value">${valueHTML}</td>
+                        </tr>`;
+                });
+            
+            html += `</tbody></table>`;
+            wrapper.innerHTML = html;
+        }
+        
+        // === MAIN UPDATE FUNCTION ===
+        let timeout = null;
+        
+        function update() {
+            const textarea = document.getElementById('input');
+            const highlightPre = document.getElementById('highlight');
+            const alertEl = document.getElementById('alert');
+            const statusEl = document.getElementById('input-status');
+            
+            const text = textarea.value;
+            
+            // Update live syntax highlight
+            highlightPre.innerHTML = `<code>${syntaxHighlight(text)}</code>`;
+            
+            if (!text.trim()) {
+                alertEl.style.display = 'none';
+                statusEl.textContent = 'Waiting for input...';
+                statusEl.style.background = '#25252b';
+                statusEl.style.color = '#00d4ff';
+                document.getElementById('table-wrapper').innerHTML = `
+                    <div class="empty">
+                        <div style="font-size:48px;">✍️</div>
+                        <p>Start typing valid JSON on the left</p>
+                    </div>`;
+                return;
+            }
+            
+            let parsed;
+            try {
+                parsed = JSON.parse(text);
+                alertEl.style.display = 'none';
+                statusEl.textContent = '✓ Valid JSON';
+                statusEl.style.background = '#1a3c2e';
+                statusEl.style.color = '#4ade80';
+            } catch (err) {
+                alertEl.style.display = 'flex';
+                statusEl.textContent = '✕ Invalid JSON';
+                statusEl.style.background = '#3a1a1f';
+                statusEl.style.color = '#ff6b6b';
+                document.getElementById('table-wrapper').innerHTML = `
+                    <div class="empty" style="color:#ff6b6b;">
+                        <div style="font-size:42px;">❌</div>
+                        <p>Fix syntax errors to see the flattened table</p>
+                    </div>`;
+                return;
+            }
+            
+            // Flatten and render
+            const flattened = flattenJSON(parsed);
+            buildTable(flattened);
+        }
+        
+        // === UTILITIES ===
+        function clearInput() {
+            const textarea = document.getElementById('input');
+            textarea.value = '';
+            update();
+            textarea.focus();
+        }
+        
+        function loadDemo() {
+            const textarea = document.getElementById('input');
+            textarea.value = `{
+  "user": {
+    "name": "Jason",
+    "location": "Hong Kong",
+    "active": true,
+    "score": 98.7,
+    "tags": ["developer", "ai"],
+    "profile": {
+      "bio": "<h3>Welcome to the demo!</h3><p>This HTML string is <strong>rendered live</strong> in the table →</p>",
+      "avatar": "https://picsum.photos/id/1015/120/120"
+    }
+  },
+  "metadata": {
+    "created": "2026-04-21",
+    "version": 2
+  },
+  "items": [
+    { "id": 1, "title": "<span style='color:#00ff9d'>First item</span>" },
+    { "id": 2, "title": "Plain text item" }
+  ],
+  "emptyObject": {},
+  "nullValue": null
+}`;
+            update();
+            // Force immediate highlight
+            setTimeout(() => update(), 10);
+        }
+        
+        function copyFlattened() {
+            const tableWrapper = document.getElementById('table-wrapper');
+            const rows = tableWrapper.querySelectorAll('tr');
+            if (!rows.length) return;
+            
+            let csv = 'Key,Value\n';
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 2) {
+                    const key = cells[0].textContent.trim();
+                    let value = cells[1].textContent.trim();
+                    // Remove rendered HTML for CSV
+                    value = value.replace(/<[^>]+>/g, '').trim();
+                    csv += `"${key.replace(/"/g, '""')}","${value.replace(/"/g, '""')}"\n`;
+                }
+            });
+            
+            navigator.clipboard.writeText(csv).then(() => {
+                const btns = document.querySelectorAll('.copy-btn');
+                const original = btns[0].innerHTML;
+                btns[0].innerHTML = '✅ Copied!';
+                setTimeout(() => btns[0].innerHTML = original, 1800);
+            });
+        }
+        
+        // === INITIALIZE ===
+        window.onload = function () {
+            const textarea = document.getElementById('input');
+            const highlightPre = document.getElementById('highlight');
+            
+            // Sync scrolling
+            function syncScroll() {
+                highlightPre.scrollTop = textarea.scrollTop;
+                highlightPre.scrollLeft = textarea.scrollLeft;
+            }
+            
+            textarea.addEventListener('input', () => {
+                if (timeout) clearTimeout(timeout);
+                timeout = setTimeout(update, 16); // ~60fps
+                syncScroll();
+            });
+            
+            textarea.addEventListener('scroll', syncScroll);
+            
+            // Initial update
+            setTimeout(() => {
+                update();
+                // Demo hint
+                console.log('%c✅ Single-file JSON Flattener ready! Try the demo button.', 'color:#00d4ff; font-family:monospace');
+            }, 100);
+            
+            // Keyboard shortcut hint
+            console.log('%cPress Ctrl/Cmd + K anytime to load demo', 'color:#ff9f7a; font-size:11px');
+        };
+    </script>
+</body>
+</html>
