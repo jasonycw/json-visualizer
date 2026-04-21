@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Flattener</title>
+  <style>
+    :root {
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+
+      --color-bg: #f7f6f2;
+      --color-surface: #f9f8f5;
+      --color-surface-2: #fbfbf9;
+      --color-surface-offset: #edeae5;
+      --color-border: #d4d1ca;
+      --color-divider: #dcd9d5;
+      --color-text: #28251d;
+      --color-text-muted: #6e6a63;
+      --color-text-faint: #9f9a91;
+      --color-primary: #01696f;
+      --color-primary-highlight: #cedcd8;
+      --color-error: #a12c2c;
+      --color-error-bg: #f5d8d8;
+      --color-success: #437a22;
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
+      --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * , *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100dvh;
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: 1.5;
+      color: var(--color-text);
+      background:
+        radial-gradient(circle at top right, rgba(1, 105, 111, 0.09), transparent 28%),
+        var(--color-bg);
+    }
+    button, textarea, input, select { font: inherit; color: inherit; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; vertical-align: top; }
+    :focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    .app {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      background: rgba(249, 248, 245, 0.88);
+      border-bottom: 1px solid var(--color-divider);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: var(--text-lg);
+      line-height: 1.1;
+    }
+
+    .brand p {
+      margin: var(--space-1) 0 0;
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 2.5rem;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: var(--color-surface-2);
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 1.05fr) minmax(320px, 1fr);
+      gap: var(--space-5);
+      padding: var(--space-5);
+      min-height: 0;
+    }
+
+    .panel {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: rgba(251, 251, 249, 0.84);
+      border: 1px solid rgba(40, 37, 29, 0.12);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+
+    .panel-header {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--color-divider);
+      background: rgba(255,255,255,0.45);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: var(--text-base);
+    }
+
+    .panel-header p {
+      margin: var(--space-1) 0 0;
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+    }
+
+    .editor-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: #171a1d;
+    }
+
+    #editor, #highlight {
+      margin: 0;
+      padding: var(--space-5);
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre;
+      overflow: auto;
+      tab-size: 2;
+    }
+
+    #highlight {
+      position: absolute;
+      inset: 0;
+      color: #e6edf3;
+      pointer-events: none;
+    }
+
+    #editor {
+      position: relative;
+      resize: none;
+      border: 0;
+      background: transparent;
+      color: transparent;
+      caret-color: #ffffff;
+      z-index: 1;
+    }
+
+    #editor::selection {
+      background: rgba(120, 180, 255, 0.35);
+      color: transparent;
+    }
+
+    .syntax .key { color: #79c0ff; }
+    .syntax .string { color: #a5d6ff; }
+    .syntax .number { color: #f2cc60; }
+    .syntax .boolean { color: #ff7b72; }
+    .syntax .null { color: #c297ff; }
+    .syntax .punct { color: #8b949e; }
+    .syntax .invalid { color: #ffb3b3; }
+
+    .results {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--color-surface);
+    }
+
+    .alert {
+      display: none;
+      margin: var(--space-4) var(--space-4) 0;
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid rgba(161, 44, 44, 0.22);
+      border-radius: var(--radius-md);
+      background: var(--color-error-bg);
+      color: var(--color-error);
+      font-size: var(--text-sm);
+      font-weight: 600;
+    }
+
+    .alert.show { display: block; }
+
+    .placeholder {
+      margin: var(--space-4);
+      padding: var(--space-6);
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface-2);
+      color: var(--color-text-muted);
+    }
+
+    .table-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: var(--space-4);
+    }
+
+    .result-table {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-divider);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .result-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--color-surface-offset);
+      color: var(--color-text);
+      font-size: var(--text-sm);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--color-divider);
+    }
+
+    .result-table tbody td {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--color-divider);
+      font-size: var(--text-sm);
+    }
+
+    .result-table tbody tr:last-child td { border-bottom: 0; }
+    .result-table tbody tr:hover { background: rgba(1, 105, 111, 0.05); }
+
+    .key-cell {
+      width: 34%;
+      min-width: 220px;
+      font-family: var(--font-mono);
+      color: var(--color-primary);
+      word-break: break-word;
+    }
+
+    .value-cell {
+      width: 66%;
+      word-break: break-word;
+    }
+
+    .value-rendered {
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .value-raw {
+      font-family: var(--font-mono);
+      background: var(--color-surface-offset);
+      border: 1px solid var(--color-divider);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-3);
+      color: var(--color-text-muted);
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    .value-html {
+      border: 1px solid rgba(1, 105, 111, 0.18);
+      background: rgba(1, 105, 111, 0.05);
+      border-radius: var(--radius-sm);
+      padding: var(--space-3);
+      overflow: auto;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.75rem;
+      padding: 0 var(--space-2);
+      border-radius: 999px;
+      background: var(--color-primary-highlight);
+      color: var(--color-primary);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .meta { justify-content: flex-start; }
+      #editor, #highlight { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>JSON Flattener</h1>
+        <p>Paste JSON on the left. Flattened keys and rendered values appear on the right.</p>
+      </div>
+      <div class="meta" aria-live="polite">
+        <div class="pill" id="statusPill">Waiting for input</div>
+        <div class="pill" id="countPill">0 fields</div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel" aria-labelledby="inputTitle">
+        <div class="panel-header">
+          <h2 id="inputTitle">Input JSON</h2>
+          <p>The editor updates in real time. Nested objects and arrays are flattened into a single layer.</p>
+        </div>
+        <div class="editor-wrap">
+          <pre id="highlight" class="syntax" aria-hidden="true"></pre>
+          <textarea id="editor" spellcheck="false" aria-label="JSON input area"></textarea>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="outputTitle">
+        <div class="panel-header">
+          <h2 id="outputTitle">Flattened Output</h2>
+          <p>HTML-like string values are rendered while the original raw value stays visible.</p>
+        </div>
+        <div class="results">
+          <div class="alert" id="errorAlert" role="alert">Input is not valid JSON.</div>
+          <div class="placeholder" id="placeholder">
+            <div class="badge">Ready</div>
+            <p style="margin-top: var(--space-3);">Start by pasting a JSON object or array into the left panel.</p>
+          </div>
+          <div class="table-wrap" id="tableWrap" hidden>
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th scope="col">JSON key</th>
+                  <th scope="col">JSON value</th>
+                </tr>
+              </thead>
+              <tbody id="resultBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const highlight = document.getElementById('highlight');
+    const errorAlert = document.getElementById('errorAlert');
+    const placeholder = document.getElementById('placeholder');
+    const tableWrap = document.getElementById('tableWrap');
+    const resultBody = document.getElementById('resultBody');
+    const statusPill = document.getElementById('statusPill');
+    const countPill = document.getElementById('countPill');
+
+    const sample = {
+      user: {
+        id: 42,
+        profile: {
+          name: "Ada",
+          bioHtml: "<strong>Platform engineer</strong><br><em>Loves clean APIs.</em>"
+        }
+      },
+      active: true,
+      tags: ["json", "flatten", "html"],
+      stats: {
+        score: 98.6,
+        visits: 12
+      }
+    };
+
+    editor.value = JSON.stringify(sample, null, 2);
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function syntaxHighlight(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(/("(?:\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"\s*:?)|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?|([{}\[\],:])/g, (match, stringToken, keywordToken, punctToken) => {
+        if (punctToken) return `<span class="punct">${match}</span>`;
+        if (stringToken) {
+          if (/:$/.test(stringToken)) return `<span class="key">${stringToken}</span>`;
+          return `<span class="string">${stringToken}</span>`;
+        }
+        if (/true|false/.test(match)) return `<span class="boolean">${match}</span>`;
+        if (/null/.test(match)) return `<span class="null">${match}</span>`;
+        return `<span class="number">${match}</span>`;
+      });
+    }
+
+    function isPlainObject(value) {
+      return Object.prototype.toString.call(value) === '[object Object]';
+    }
+
+    function flattenJson(input, parentKey = '', output = {}) {
+      if (Array.isArray(input)) {
+        if (input.length === 0 && parentKey) output[parentKey] = [];
+        input.forEach((item, index) => {
+          const nextKey = parentKey ? `${parentKey}[${index}]` : `[${index}]`;
+          if (isPlainObject(item) || Array.isArray(item)) {
+            flattenJson(item, nextKey, output);
+          } else {
+            output[nextKey] = item;
+          }
+        });
+        return output;
+      }
+
+      if (isPlainObject(input)) {
+        const entries = Object.entries(input);
+        if (!entries.length && parentKey) output[parentKey] = {};
+        entries.forEach(([key, value]) => {
+          const nextKey = parentKey ? `${parentKey}.${key}` : key;
+          if (isPlainObject(value) || Array.isArray(value)) {
+            flattenJson(value, nextKey, output);
+          } else {
+            output[nextKey] = value;
+          }
+        });
+        return output;
+      }
+
+      output[parentKey || 'value'] = input;
+      return output;
+    }
+
+    function looksLikeHtml(value) {
+      return typeof value === 'string' && /<\/?[a-z][\s\S]*>/i.test(value.trim());
+    }
+
+    function renderValueCell(value) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'value-rendered';
+
+      const raw = document.createElement('div');
+      raw.className = 'value-raw';
+      raw.textContent = typeof value === 'string' ? value : JSON.stringify(value);
+      wrapper.appendChild(raw);
+
+      if (looksLikeHtml(value)) {
+        const preview = document.createElement('div');
+        preview.className = 'value-html';
+        preview.innerHTML = value;
+        wrapper.appendChild(preview);
+      }
+
+      return wrapper;
+    }
+
+    function syncScroll() {
+      highlight.scrollTop = editor.scrollTop;
+      highlight.scrollLeft = editor.scrollLeft;
+    }
+
+    function setInvalid(message) {
+      errorAlert.textContent = message || 'Input is not valid JSON.';
+      errorAlert.classList.add('show');
+      placeholder.hidden = false;
+      tableWrap.hidden = true;
+      resultBody.innerHTML = '';
+      statusPill.textContent = 'Invalid JSON';
+      countPill.textContent = '0 fields';
+    }
+
+    function update() {
+      const text = editor.value;
+      highlight.innerHTML = syntaxHighlight(text) + '<span aria-hidden="true">\n</span>';
+      syncScroll();
+
+      if (!text.trim()) {
+        errorAlert.classList.remove('show');
+        placeholder.hidden = false;
+        tableWrap.hidden = true;
+        resultBody.innerHTML = '';
+        statusPill.textContent = 'Waiting for input';
+        countPill.textContent = '0 fields';
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(text);
+        const flattened = flattenJson(parsed);
+        const entries = Object.entries(flattened);
+
+        errorAlert.classList.remove('show');
+        placeholder.hidden = entries.length > 0;
+        tableWrap.hidden = entries.length === 0;
+        resultBody.innerHTML = '';
+
+        entries.forEach(([key, value]) => {
+          const row = document.createElement('tr');
+          const keyCell = document.createElement('td');
+          const valueCell = document.createElement('td');
+
+          keyCell.className = 'key-cell';
+          valueCell.className = 'value-cell';
+          keyCell.textContent = key;
+          valueCell.appendChild(renderValueCell(value));
+
+          row.appendChild(keyCell);
+          row.appendChild(valueCell);
+          resultBody.appendChild(row);
+        });
+
+        if (entries.length === 0) {
+          placeholder.hidden = false;
+          placeholder.innerHTML = '<div class="badge">Empty</div><p style="margin-top: var(--space-3);">The JSON is valid, but it has no terminal values to display.</p>';
+        } else {
+          placeholder.innerHTML = '<div class="badge">Ready</div><p style="margin-top: var(--space-3);">Start by pasting a JSON object or array into the left panel.</p>';
+        }
+
+        statusPill.textContent = 'Valid JSON';
+        countPill.textContent = `${entries.length} field${entries.length === 1 ? '' : 's'}`;
+      } catch (error) {
+        setInvalid('Input is not valid JSON.');
+      }
+    }
+
+    editor.addEventListener('input', update);
+    editor.addEventListener('scroll', syncScroll);
+    editor.addEventListener('keydown', (event) => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.setRangeText('  ', start, end, 'end');
+        update();
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
