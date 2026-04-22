@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Flattener</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0f1117;
+            color: #c9d1d9;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 10px 20px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            font-size: 14px;
+            font-weight: 600;
+            color: #58a6ff;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+
+        .layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── LEFT PANEL ── */
+        .left-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #30363d;
+            position: relative;
+            background: #0d1117;
+        }
+
+        .panel-header {
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8b949e;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .editor-wrap {
+            position: relative;
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* Line numbers */
+        #line-numbers {
+            width: 44px;
+            min-width: 44px;
+            background: #0d1117;
+            color: #484f58;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 12px 6px 12px 0;
+            text-align: right;
+            overflow: hidden;
+            user-select: none;
+            border-right: 1px solid #21262d;
+            flex-shrink: 0;
+        }
+
+        /* The invisible textarea for actual input */
+        #json-input {
+            position: absolute;
+            top: 0;
+            left: 44px;
+            right: 0;
+            bottom: 0;
+            width: calc(100% - 44px);
+            height: 100%;
+            background: transparent;
+            color: transparent;
+            caret-color: #e6edf3;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 12px;
+            border: none;
+            outline: none;
+            resize: none;
+            z-index: 2;
+            tab-size: 2;
+            white-space: pre;
+            overflow: auto;
+            spellcheck: false;
+        }
+
+        /* Syntax-highlighted mirror */
+        #highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 44px;
+            right: 0;
+            bottom: 0;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 12px;
+            pointer-events: none;
+            white-space: pre;
+            overflow: hidden;
+            word-break: break-all;
+            z-index: 1;
+        }
+
+        /* Syntax colours */
+        .t-brace {
+            color: #79c0ff;
+        }
+
+        .t-bracket {
+            color: #d2a8ff;
+        }
+
+        .t-key {
+            color: #7ee787;
+        }
+
+        .t-str {
+            color: #a5d6ff;
+        }
+
+        .t-num {
+            color: #f2cc60;
+        }
+
+        .t-bool {
+            color: #ff7b72;
+        }
+
+        .t-null {
+            color: #ff7b72;
+        }
+
+        .t-colon {
+            color: #8b949e;
+        }
+
+        .t-comma {
+            color: #8b949e;
+        }
+
+        .t-plain {
+            color: #c9d1d9;
+        }
+
+        /* ── RIGHT PANEL ── */
+        .right-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            background: #0d1117;
+            overflow: hidden;
+        }
+
+        .right-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        /* Alert */
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            background: #3d1f1f;
+            border: 1px solid #f85149;
+            color: #ffa198;
+            animation: slideIn 0.2s ease;
+        }
+
+        .alert-icon {
+            font-size: 16px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #484f58;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .empty-icon {
+            font-size: 40px;
+        }
+
+        /* Flat table */
+        .table-wrap {
+            padding: 12px;
+        }
+
+        .flat-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .flat-table thead th {
+            position: sticky;
+            top: 0;
+            background: #161b22;
+            color: #8b949e;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+            z-index: 1;
+        }
+
+        .flat-table tbody tr {
+            border-bottom: 1px solid #21262d;
+            transition: background 0.12s;
+        }
+
+        .flat-table tbody tr:hover {
+            background: #161b22;
+        }
+
+        .flat-table td {
+            padding: 9px 12px;
+            vertical-align: top;
+        }
+
+        .td-key {
+            width: 38%;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            color: #7ee787;
+            word-break: break-all;
+        }
+
+        .td-depth {
+            color: #484f58;
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .td-val {
+            width: 62%;
+            color: #c9d1d9;
+            word-break: break-word;
+        }
+
+        .val-str {
+            color: #a5d6ff;
+        }
+
+        .val-num {
+            color: #f2cc60;
+        }
+
+        .val-bool {
+            color: #ff7b72;
+        }
+
+        .val-null {
+            color: #8b949e;
+            font-style: italic;
+        }
+
+        /* HTML value sandbox */
+        .html-render {
+            background: #fff;
+            color: #111;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow: auto;
+        }
+
+        /* Status dot */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            background: #484f58;
+            flex-shrink: 0;
+        }
+
+        .status-dot.ok {
+            background: #3fb950;
+        }
+
+        .status-dot.error {
+            background: #f85149;
+        }
+
+        /* scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #484f58;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>🧩 JSON Flattener &amp; Renderer</header>
+
+    <div class="layout">
+
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+            <div class="panel-header">
+                <span class="status-dot" id="left-dot"></span>
+                JSON Input
+            </div>
+            <div class="editor-wrap">
+                <div id="line-numbers">1</div>
+                <textarea id="json-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    placeholder="Paste or type your JSON here…"></textarea>
+                <div id="highlight-layer" aria-hidden="true"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="right-panel">
+            <div class="panel-header">
+                <span class="status-dot" id="right-dot"></span>
+                Flattened Output
+            </div>
+            <div class="right-content" id="right-content">
+                <div class="empty-state" id="empty-state">
+                    <span class="empty-icon">📋</span>
+                    <span>Paste valid JSON on the left to see the flattened table</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            const textarea = document.getElementById('json-input');
+            const highlight = document.getElementById('highlight-layer');
+            const lineNums = document.getElementById('line-numbers');
+            const rightContent = document.getElementById('right-content');
+            const leftDot = document.getElementById('left-dot');
+            const rightDot = document.getElementById('right-dot');
+
+            /* ─────────────────────────────────────────
+               SYNTAX HIGHLIGHTER
+               A hand-rolled JSON tokeniser — no regex
+               shortcuts that could mis-match nested
+               strings; uses a proper char-by-char scan.
+            ───────────────────────────────────────── */
+            function tokeniseJSON(src) {
+                const tokens = [];
+                let i = 0;
+
+                function peek() { return src[i]; }
+                function next() { return src[i++]; }
+
+                function readString() {
+                    // i is positioned AFTER the opening "
+                    let s = '"';
+                    while (i < src.length) {
+                        const ch = next();
+                        s += ch;
+                        if (ch === '\\') { s += next(); continue; }
+                        if (ch === '"') break;
+                    }
+                    return s;
+                }
+
+                while (i < src.length) {
+                    const ch = src[i];
+
+                    if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
+                        tokens.push({ type: 'ws', val: next() });
+                        continue;
+                    }
+
+                    if (ch === '{' || ch === '}') {
+                        tokens.push({ type: 'brace', val: next() }); continue;
+                    }
+                    if (ch === '[' || ch === ']') {
+                        tokens.push({ type: 'bracket', val: next() }); continue;
+                    }
+                    if (ch === ':') {
+                        tokens.push({ type: 'colon', val: next() }); continue;
+                    }
+                    if (ch === ',') {
+                        tokens.push({ type: 'comma', val: next() }); continue;
+                    }
+
+                    if (ch === '"') {
+                        next(); // consume "
+                        const raw = readString();
+
+                        // Peek behind: is this a key?  The next non-ws token should be ":"
+                        let j = i;
+                        while (j < src.length && (src[j] === ' ' || src[j] === '\t')) j++;
+                        const isKey = src[j] === ':';
+
+                        tokens.push({ type: isKey ? 'key' : 'string', val: raw });
+                        continue;
+                    }
+
+                    // number
+                    if (ch === '-' || (ch >= '0' && ch <= '9')) {
+                        let num = '';
+                        while (i < src.length && '0123456789.eE+-'.includes(src[i])) num += next();
+                        tokens.push({ type: 'number', val: num }); continue;
+                    }
+
+                    // true / false / null
+                    if (src.startsWith('true', i)) { tokens.push({ type: 'bool', val: 'true' }); i += 4; continue; }
+                    if (src.startsWith('false', i)) { tokens.push({ type: 'bool', val: 'false' }); i += 5; continue; }
+                    if (src.startsWith('null', i)) { tokens.push({ type: 'null', val: 'null' }); i += 4; continue; }
+
+                    // unknown / invalid char — pass through
+                    tokens.push({ type: 'plain', val: next() });
+                }
+                return tokens;
+            }
+
+            function esc(s) {
+                return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function buildHighlightHTML(src) {
+                if (!src) return '';
+                const tokens = tokeniseJSON(src);
+                return tokens.map(t => {
+                    const e = esc(t.val);
+                    switch (t.type) {
+                        case 'brace': return `<span class="t-brace">${e}</span>`;
+                        case 'bracket': return `<span class="t-bracket">${e}</span>`;
+                        case 'key': return `<span class="t-key">${e}</span>`;
+                        case 'string': return `<span class="t-str">${e}</span>`;
+                        case 'number': return `<span class="t-num">${e}</span>`;
+                        case 'bool': return `<span class="t-bool">${e}</span>`;
+                        case 'null': return `<span class="t-null">${e}</span>`;
+                        case 'colon': return `<span class="t-colon">${e}</span>`;
+                        case 'comma': return `<span class="t-comma">${e}</span>`;
+                        default: return `<span class="t-plain">${e}</span>`;
+                    }
+                }).join('');
+            }
+
+            /* ─────────────────────────────────────────
+               LINE NUMBERS
+            ───────────────────────────────────────── */
+            function updateLineNumbers(text) {
+                const count = (text.match(/\n/g) || []).length + 1;
+                let html = '';
+                for (let n = 1; n <= count; n++) html += n + '\n';
+                lineNums.textContent = html;
+            }
+
+            /* Sync highlight layer scroll with textarea */
+            textarea.addEventListener('scroll', () => {
+                highlight.scrollTop = textarea.scrollTop;
+                highlight.scrollLeft = textarea.scrollLeft;
+                lineNums.scrollTop = textarea.scrollTop;
+            });
+
+            /* ─────────────────────────────────────────
+               JSON FLATTENER
+               Supports objects and arrays recursively.
+               Produces dot-notation keys.
+            ───────────────────────────────────────── */
+            function flatten(val, prefix, out) {
+                if (val !== null && typeof val === 'object') {
+                    const keys = Array.isArray(val)
+                        ? val.map((_, idx) => idx)
+                        : Object.keys(val);
+
+                    if (keys.length === 0) {
+                        // empty object / array — store as-is
+                        out[prefix] = val;
+                        return;
+                    }
+
+                    for (const k of keys) {
+                        const newKey = prefix === '' ? String(k) : prefix + '.' + k;
+                        flatten(val[k], newKey, out);
+                    }
+                } else {
+                    out[prefix] = val;
+                }
+            }
+
+            /* ─────────────────────────────────────────
+               HTML DETECTION
+               Heuristic: starts with < and contains a
+               closing tag or self-closing tag.
+            ───────────────────────────────────────── */
+            function looksLikeHTML(s) {
+                if (typeof s !== 'string') return false;
+                const t = s.trim();
+                return t.startsWith('<') && (/<\/[a-zA-Z]/.test(t) || /\/>/.test(t) || /^<[a-zA-Z][^>]*>/.test(t));
+            }
+
+            /* ─────────────────────────────────────────
+               RENDER RIGHT PANEL
+            ───────────────────────────────────────── */
+            function renderTable(flat) {
+                const wrap = document.createElement('div');
+                wrap.className = 'table-wrap';
+
+                const table = document.createElement('table');
+                table.className = 'flat-table';
+
+                // thead
+                const thead = document.createElement('thead');
+                thead.innerHTML = '<tr><th>Key (dot-path)</th><th>Value</th></tr>';
+                table.appendChild(thead);
+
+                // tbody
+                const tbody = document.createElement('tbody');
+                const entries = Object.entries(flat);
+
+                for (const [key, value] of entries) {
+                    const tr = document.createElement('tr');
+
+                    // Key cell
+                    const tdKey = document.createElement('td');
+                    tdKey.className = 'td-key';
+
+                    const depth = (key.match(/\./g) || []).length;
+                    const depthBadge = depth > 0
+                        ? `<span class="td-depth" title="nesting depth ${depth}">↳${depth}</span>`
+                        : '';
+                    tdKey.innerHTML = esc(key) + depthBadge;
+
+                    // Value cell
+                    const tdVal = document.createElement('td');
+                    tdVal.className = 'td-val';
+
+                    if (value === null) {
+                        tdVal.innerHTML = '<span class="val-null">null</span>';
+                    } else if (typeof value === 'boolean') {
+                        tdVal.innerHTML = `<span class="val-bool">${value}</span>`;
+                    } else if (typeof value === 'number') {
+                        tdVal.innerHTML = `<span class="val-num">${value}</span>`;
+                    } else if (typeof value === 'string') {
+                        if (looksLikeHTML(value)) {
+                            // Render HTML safely inside a sandboxed div
+                            const sandbox = document.createElement('div');
+                            sandbox.className = 'html-render';
+                            sandbox.innerHTML = value;          // intentional HTML render
+                            tdVal.appendChild(sandbox);
+                        } else {
+                            tdVal.innerHTML = `<span class="val-str">${esc(value)}</span>`;
+                        }
+                    } else {
+                        // Fallback: stringify (e.g. empty object/array)
+                        tdVal.innerHTML = `<span class="val-str">${esc(JSON.stringify(value))}</span>`;
+                    }
+
+                    tr.appendChild(tdKey);
+                    tr.appendChild(tdVal);
+                    tbody.appendChild(tr);
+                }
+
+                table.appendChild(tbody);
+                wrap.appendChild(table);
+                return wrap;
+            }
+
+            function showError(msg) {
+                rightContent.innerHTML = '';
+                const alert = document.createElement('div');
+                alert.className = 'alert';
+                alert.innerHTML = `<span class="alert-icon">⚠️</span><span>${esc(msg)}</span>`;
+                rightContent.appendChild(alert);
+                leftDot.className = 'status-dot error';
+                rightDot.className = 'status-dot error';
+            }
+
+            function showEmpty() {
+                rightContent.innerHTML =
+                    `<div class="empty-state" id="empty-state">
+         <span class="empty-icon">📋</span>
+         <span>Paste valid JSON on the left to see the flattened table</span>
+       </div>`;
+                leftDot.className = 'status-dot';
+                rightDot.className = 'status-dot';
+            }
+
+            function showTable(flat) {
+                rightContent.innerHTML = '';
+                rightContent.appendChild(renderTable(flat));
+                leftDot.className = 'status-dot ok';
+                rightDot.className = 'status-dot ok';
+            }
+
+            /* ─────────────────────────────────────────
+               MAIN INPUT HANDLER
+            ───────────────────────────────────────── */
+            let debounceTimer = null;
+
+            function processInput() {
+                const raw = textarea.value;
+
+                // Update syntax highlight
+                highlight.innerHTML = buildHighlightHTML(raw);
+                // Keep scroll in sync after content change
+                highlight.scrollTop = textarea.scrollTop;
+                highlight.scrollLeft = textarea.scrollLeft;
+
+                // Update line numbers
+                updateLineNumbers(raw);
+
+                // Empty?
+                if (!raw.trim()) { showEmpty(); return; }
+
+                // Parse JSON
+                let parsed;
+                try {
+                    parsed = JSON.parse(raw);
+                } catch (e) {
+                    showError('Invalid JSON — ' + e.message);
+                    return;
+                }
+
+                // Flatten
+                const flat = {};
+                flatten(parsed, '', flat);
+
+                showTable(flat);
+            }
+
+            textarea.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(processInput, 120);
+            });
+
+            /* Tab key → insert 2 spaces instead of losing focus */
+            textarea.addEventListener('keydown', e => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const s = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    textarea.value = textarea.value.substring(0, s) + '  ' + textarea.value.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = s + 2;
+                    processInput();
+                }
+            });
+
+            // Initial render
+            processInput();
+        })();
+    </script>
+</body>
+
+</html>

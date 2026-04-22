@@ -15,3 +15,4 @@
 | [Gemini 3.1 Pro](https://gemini.google.com/share/0c9745914225)                                                   | [Go](https://jasonycw.github.io/json-visualizer/gemini/)     |
 | [Perplexity](https://www.perplexity.ai/search/create-a-single-page-html-that-t08yXELHR72YQCJi5GreBw?preview=1)   | [Go](https://jasonycw.github.io/json-visualizer/perplexity/) |
 | [Grok](https://grok.com/share/c2hhcmQtMg_d8c58954-8961-49e0-a8e8-fccdb0bec59e)                                   | [Go](https://jasonycw.github.io/json-visualizer/grok/)       |
+| Claude Sonnet                                  | [Go](https://jasonycw.github.io/json-visualizer/claude-sonnet/)       |
