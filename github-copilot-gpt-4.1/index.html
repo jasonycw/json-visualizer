@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .left,
+        .right {
+            flex: 1;
+            padding: 24px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+
+        .left {
+            border-right: 1px solid #ddd;
+            background: #f9f9f9;
+        }
+
+        .right {
+            background: #fff;
+        }
+
+        textarea {
+            width: 100%;
+            height: 90vh;
+            font-size: 16px;
+            font-family: 'Fira Mono', 'Consolas', monospace;
+            resize: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 12px;
+            box-sizing: border-box;
+            background: #f5f5f5;
+            color: #222;
+        }
+
+        .alert {
+            color: #fff;
+            background: #d32f2f;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f0f0f0;
+        }
+
+        .json-key {
+            font-family: 'Fira Mono', 'Consolas', monospace;
+            color: #1565c0;
+        }
+
+        .json-value {
+            font-family: 'Fira Mono', 'Consolas', monospace;
+        }
+
+        /* Simple JSON syntax highlight for textarea (optional, fallback) */
+        .syntax-highlight {
+            white-space: pre;
+            font-family: 'Fira Mono', 'Consolas', monospace;
+            background: #f5f5f5;
+            color: #222;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            min-height: 90vh;
+            width: 100%;
+            box-sizing: border-box;
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .textarea-wrapper {
+            position: relative;
+        }
+
+        .textarea-raw {
+            position: relative;
+            background: transparent;
+            z-index: 2;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="left">
+            <div class="textarea-wrapper">
+                <textarea id="json-input" class="textarea-raw" spellcheck="false"
+                    placeholder="Paste or type JSON here..."></textarea>
+            </div>
+        </div>
+        <div class="right">
+            <div id="alert-container"></div>
+            <div id="output"></div>
+        </div>
+    </div>
+    <script>
+        // Flatten JSON object to single layer with dot notation keys
+        function flatten(obj, prefix = '', res = {}) {
+            for (let key in obj) {
+                if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+                let val = obj[key];
+                let newKey = prefix ? prefix + '.' + key : key;
+                if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                    flatten(val, newKey, res);
+                } else if (Array.isArray(val)) {
+                    val.forEach((item, idx) => {
+                        if (typeof item === 'object' && item !== null) {
+                            flatten(item, newKey + '[' + idx + ']', res);
+                        } else {
+                            res[newKey + '[' + idx + ']'] = item;
+                        }
+                    });
+                } else {
+                    res[newKey] = val;
+                }
+            }
+            return res;
+        }
+
+        // Check if a string is HTML
+        function isHTML(str) {
+            return typeof str === 'string' && /<[a-z][\s\S]*>/i.test(str);
+        }
+
+        // Render output table
+        function renderTable(flattened) {
+            let rows = Object.entries(flattened).map(([key, value]) => {
+                let valueCell;
+                if (isHTML(value)) {
+                    valueCell = `<div>${value}</div>`;
+                } else {
+                    valueCell = `<span class="json-value">${escapeHTML(String(value))}</span>`;
+                }
+                return `<tr><td class="json-key">${escapeHTML(key)}</td><td>${valueCell}</td></tr>`;
+            }).join('');
+            return `<table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        // Escape HTML for safe rendering
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, function (tag) {
+                const chars = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                };
+                return chars[tag] || tag;
+            });
+        }
+
+        // Show alert
+        function showAlert(msg) {
+            document.getElementById('alert-container').innerHTML = `<div class="alert">${msg}</div>`;
+        }
+        function clearAlert() {
+            document.getElementById('alert-container').innerHTML = '';
+        }
+
+        // Main event
+        const input = document.getElementById('json-input');
+        const output = document.getElementById('output');
+
+        input.addEventListener('input', function () {
+            let text = input.value.trim();
+            if (!text) {
+                clearAlert();
+                output.innerHTML = '';
+                return;
+            }
+            try {
+                let json = JSON.parse(text);
+                let flat = flatten(json);
+                clearAlert();
+                output.innerHTML = renderTable(flat);
+            } catch (e) {
+                showAlert('Input is not a valid JSON.');
+                output.innerHTML = '';
+            }
+        });
+    </script>
+</body>
+
+</html>
