@@ -17,3 +17,4 @@
 | [Grok](https://grok.com/share/c2hhcmQtMg_d8c58954-8961-49e0-a8e8-fccdb0bec59e)                                   | [Go](https://jasonycw.github.io/json-visualizer/grok/)                         |
 | Claude Sonnet                                                                                                    | [Go](https://jasonycw.github.io/json-visualizer/claude-sonnet/)                |
 | GitHub Copilot with GPT 4.1                                                                                      | [Go](https://jasonycw.github.io/json-visualizer/github-copilot-gpt-4.1/)       |
+| OpenAI GPT-5.4 Think.                                                                                            | [Go](https://jasonycw.github.io/json-visualizer/openai-gpt-5.4-thinkg/)        |

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Flattener Viewer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #0b1220;
+      --border: #243041;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --danger-bg: #3b0d0d;
+      --danger-border: #7f1d1d;
+      --danger-text: #fecaca;
+      --ok-bg: #0c2a1a;
+      --ok-border: #14532d;
+      --ok-text: #bbf7d0;
+      --table-head: #172033;
+      --row-alt: #0d1526;
+      --code-bg: #0b1020;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    .panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    }
+
+    .panel:last-child {
+      border-right: none;
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .editor-wrap {
+      flex: 1;
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--code-bg);
+      color: var(--text);
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      outline: none;
+      box-shadow: var(--shadow);
+      tab-size: 2;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18), var(--shadow);
+    }
+
+    .right-content {
+      flex: 1;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .alert {
+      display: none;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      line-height: 1.4;
+      box-shadow: var(--shadow);
+    }
+
+    .alert.error {
+      display: block;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .alert.ok {
+      display: block;
+      background: var(--ok-bg);
+      border: 1px solid var(--ok-border);
+      color: var(--ok-text);
+    }
+
+    .placeholder {
+      height: 100%;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--table-head);
+      color: var(--text);
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--row-alt);
+    }
+
+    td {
+      padding: 12px 14px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    td.key {
+      width: 35%;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      color: #cbd5e1;
+    }
+
+    td.value {
+      width: 65%;
+    }
+
+    .value-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      color: #e2e8f0;
+    }
+
+    .nullish {
+      color: #fca5a5;
+      font-style: italic;
+    }
+
+    .bool {
+      color: #93c5fd;
+      font-weight: 600;
+    }
+
+    .num {
+      color: #f9a8d4;
+      font-weight: 600;
+    }
+
+    .html-label {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: rgba(96, 165, 250, 0.12);
+      color: #bfdbfe;
+      border: 1px solid rgba(96, 165, 250, 0.35);
+    }
+
+    .html-preview {
+      width: 100%;
+      min-height: 80px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      display: block;
+    }
+
+    .html-raw {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 50vh 50vh;
+      }
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .panel:last-child {
+        border-bottom: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Left Panel -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">JSON Input</div>
+          <div class="panel-subtitle">Paste or type any JSON here</div>
+        </div>
+      </div>
+      <div class="editor-wrap">
+        <textarea id="jsonInput" spellcheck="false" placeholder='Example:
+{
+  "user": {
+    "name": "Jason",
+    "profile": {
+      "title": "Senior Software Engineer"
+    }
+  },
+  "bioHtml": "<div style=&quot;color:blue&quot;><strong>Hello</strong> world</div>",
+  "active": true,
+  "score": 99,
+  "tags": ["a", "b"]
+}'></textarea>
+      </div>
+    </section>
+
+    <!-- Right Panel -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Flattened Output</div>
+          <div class="panel-subtitle">Live validation + flattened key/value table</div>
+        </div>
+      </div>
+      <div class="right-content">
+        <div id="status"></div>
+        <div id="output">
+          <div class="placeholder">
+            Enter valid JSON on the left to see the flattened table here.
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const inputEl = document.getElementById("jsonInput");
+      const statusEl = document.getElementById("status");
+      const outputEl = document.getElementById("output");
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function isHtmlString(value) {
+        if (typeof value !== "string") return false;
+        const trimmed = value.trim();
+        if (!trimmed || !trimmed.includes("<") || !trimmed.includes(">")) return false;
+
+        // Very lightweight HTML detection
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(trimmed, "text/html");
+        return Array.from(doc.body.childNodes).some(node => node.nodeType === 1);
+      }
+
+      function flattenJson(value, prefix = "", result = {}) {
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            result[prefix || "$"] = [];
+            return result;
+          }
+          value.forEach((item, index) => {
+            const nextKey = prefix ? `${prefix}[${index}]` : `[${index}]`;
+            flattenJson(item, nextKey, result);
+          });
+          return result;
+        }
+
+        if (value !== null && typeof value === "object") {
+          const keys = Object.keys(value);
+          if (keys.length === 0) {
+            result[prefix || "$"] = {};
+            return result;
+          }
+          keys.forEach((key) => {
+            const nextKey = prefix ? `${prefix}.${key}` : key;
+            flattenJson(value[key], nextKey, result);
+          });
+          return result;
+        }
+
+        result[prefix || "$"] = value;
+        return result;
+      }
+
+      function createStatus(type, message) {
+        const div = document.createElement("div");
+        div.className = `alert ${type}`;
+        div.textContent = message;
+        return div;
+      }
+
+      function createValueNode(value) {
+        const wrapper = document.createElement("div");
+
+        if (value === null) {
+          const span = document.createElement("span");
+          span.className = "nullish";
+          span.textContent = "null";
+          wrapper.appendChild(span);
+          return wrapper;
+        }
+
+        if (typeof value === "boolean") {
+          const span = document.createElement("span");
+          span.className = "bool";
+          span.textContent = String(value);
+          wrapper.appendChild(span);
+          return wrapper;
+        }
+
+        if (typeof value === "number") {
+          const span = document.createElement("span");
+          span.className = "num";
+          span.textContent = String(value);
+          wrapper.appendChild(span);
+          return wrapper;
+        }
+
+        if (typeof value === "string" && isHtmlString(value)) {
+          const label = document.createElement("div");
+          label.className = "html-label";
+          label.textContent = "HTML rendered";
+          wrapper.appendChild(label);
+
+          const iframe = document.createElement("iframe");
+          iframe.className = "html-preview";
+          iframe.setAttribute("sandbox", "allow-same-origin");
+          iframe.srcdoc = value;
+
+          iframe.addEventListener("load", function () {
+            try {
+              const doc = iframe.contentDocument || iframe.contentWindow.document;
+              const body = doc.body;
+              const html = doc.documentElement;
+
+              const height = Math.max(
+                body ? body.scrollHeight : 0,
+                html ? html.scrollHeight : 0,
+                80
+              );
+
+              iframe.style.height = Math.min(height + 8, 500) + "px";
+            } catch (e) {
+              iframe.style.height = "120px";
+            }
+          });
+
+          wrapper.appendChild(iframe);
+
+          const raw = document.createElement("div");
+          raw.className = "html-raw";
+          raw.textContent = value;
+          wrapper.appendChild(raw);
+
+          return wrapper;
+        }
+
+        if (typeof value === "object") {
+          const pre = document.createElement("div");
+          pre.className = "value-text";
+          pre.textContent = JSON.stringify(value);
+          wrapper.appendChild(pre);
+          return wrapper;
+        }
+
+        const pre = document.createElement("div");
+        pre.className = "value-text";
+        pre.textContent = String(value);
+        wrapper.appendChild(pre);
+        return wrapper;
+      }
+
+      function renderTable(flattened) {
+        const entries = Object.entries(flattened);
+
+        if (entries.length === 0) {
+          outputEl.innerHTML = '<div class="placeholder">Valid JSON detected, but there is nothing to display.</div>';
+          return;
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `Flattened entries: ${entries.length}`;
+
+        const wrap = document.createElement("div");
+        wrap.className = "table-wrap";
+
+        const table = document.createElement("table");
+
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+
+        const thKey = document.createElement("th");
+        thKey.textContent = "JSON Key";
+
+        const thValue = document.createElement("th");
+        thValue.textContent = "JSON Value";
+
+        headRow.appendChild(thKey);
+        headRow.appendChild(thValue);
+        thead.appendChild(headRow);
+
+        const tbody = document.createElement("tbody");
+
+        entries.forEach(([key, value]) => {
+          const tr = document.createElement("tr");
+
+          const tdKey = document.createElement("td");
+          tdKey.className = "key";
+          tdKey.textContent = key;
+
+          const tdValue = document.createElement("td");
+          tdValue.className = "value";
+          tdValue.appendChild(createValueNode(value));
+
+          tr.appendChild(tdKey);
+          tr.appendChild(tdValue);
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+
+        outputEl.innerHTML = "";
+        outputEl.appendChild(meta);
+        outputEl.appendChild(wrap);
+      }
+
+      function processInput() {
+        const text = inputEl.value.trim();
+
+        statusEl.innerHTML = "";
+
+        if (!text) {
+          outputEl.innerHTML = '<div class="placeholder">Enter valid JSON on the left to see the flattened table here.</div>';
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(text);
+          const flattened = flattenJson(parsed);
+
+          statusEl.appendChild(createStatus("ok", "Valid JSON"));
+          renderTable(flattened);
+        } catch (err) {
+          statusEl.appendChild(createStatus("error", "The input is not a valid JSON."));
+          outputEl.innerHTML = `
+            <div class="placeholder">
+              Please correct the JSON on the left.<br><br>
+              <span style="color:#fca5a5; font-family:Consolas, Monaco, 'Courier New', monospace;">
+                ${escapeHtml(err.message)}
+              </span>
+            </div>
+          `;
+        }
+      }
+
+      inputEl.addEventListener("input", processInput);
+
+      // Optional starter content
+      inputEl.value = `{
+  "user": {
+    "name": "Jason",
+    "profile": {
+      "title": "Senior Software Engineer"
+    }
+  },
+  "bioHtml": "<div style=\\"padding:12px;border:1px solid #ccc;border-radius:8px;\\"><h3 style=\\"margin-top:0;color:#2563eb;\\">Hello</h3><p>This HTML string is rendered in the table.</p></div>",
+  "active": true,
+  "score": 99,
+  "tags": ["a", "b"],
+  "notes": null
+}`;
+      processInput();
+    })();
+  </script>
+</body>
+</html>
