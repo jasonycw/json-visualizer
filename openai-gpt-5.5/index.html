@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Flattener Visualizer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --line: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --alert-bg: #7f1d1d;
+      --alert-border: #ef4444;
+      --table-head: #1e293b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      height: 100vh;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    #jsonInput {
+      border: 0;
+      resize: none;
+      background: #020617;
+      color: var(--text);
+      padding: 14px;
+      width: 100%;
+      height: 100%;
+      outline: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    #status {
+      display: none;
+      margin: 10px 12px 0;
+      padding: 10px 12px;
+      border: 1px solid var(--alert-border);
+      border-radius: 8px;
+      background: var(--alert-bg);
+      color: #fee2e2;
+      font-size: 14px;
+    }
+
+    .right-content {
+      padding: 10px 12px 12px;
+      overflow: auto;
+      min-height: 0;
+      height: 100%;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      vertical-align: top;
+      word-break: break-word;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--table-head);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 10px 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .panel {
+        min-height: 42vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel">
+      <h2>Input JSON</h2>
+      <textarea id="jsonInput" spellcheck="false" placeholder="Paste or type JSON here..."></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Flattened Output</h2>
+      <div id="status">Input is not a valid JSON.</div>
+      <div class="right-content" id="output"></div>
+    </section>
+  </main>
+
+  <script>
+    const inputEl = document.getElementById('jsonInput');
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+
+    const sample = {
+      user: {
+        name: 'Ada',
+        bio: '<strong>Mathematician</strong> & writer',
+        contact: { email: 'ada@example.com' }
+      },
+      active: true,
+      scores: [10, 20, 30]
+    };
+    inputEl.value = JSON.stringify(sample, null, 2);
+
+    function isHtmlLike(value) {
+      return /<\s*[a-z][\s\S]*>/i.test(value) && /<\s*\/?\s*[a-z]/i.test(value);
+    }
+
+    function flatten(value, prefix = '', out = {}) {
+      if (Array.isArray(value)) {
+        if (value.length === 0 && prefix) out[prefix] = [];
+        value.forEach((item, index) => {
+          const next = prefix ? `${prefix}[${index}]` : `[${index}]`;
+          flatten(item, next, out);
+        });
+        return out;
+      }
+
+      if (value !== null && typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0 && prefix) out[prefix] = {};
+        keys.forEach((key) => {
+          const next = prefix ? `${prefix}.${key}` : key;
+          flatten(value[key], next, out);
+        });
+        return out;
+      }
+
+      out[prefix || '(root)'] = value;
+      return out;
+    }
+
+    function render(flat) {
+      const entries = Object.entries(flat);
+      if (entries.length === 0) {
+        outputEl.innerHTML = '<div class="empty">Valid JSON, but no leaf values to show.</div>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+
+      const keyTh = document.createElement('th');
+      keyTh.textContent = 'Key';
+      const valueTh = document.createElement('th');
+      valueTh.textContent = 'Value';
+
+      headRow.appendChild(keyTh);
+      headRow.appendChild(valueTh);
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+
+      entries.forEach(([k, v]) => {
+        const tr = document.createElement('tr');
+
+        const keyTd = document.createElement('td');
+        keyTd.textContent = k;
+
+        const valueTd = document.createElement('td');
+
+        if (typeof v === 'string' && isHtmlLike(v)) {
+          valueTd.innerHTML = v;
+        } else {
+          valueTd.textContent = typeof v === 'string' ? v : JSON.stringify(v);
+        }
+
+        tr.appendChild(keyTd);
+        tr.appendChild(valueTd);
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      outputEl.innerHTML = '';
+      outputEl.appendChild(table);
+    }
+
+    function update() {
+      const raw = inputEl.value.trim();
+
+      if (!raw) {
+        statusEl.style.display = 'none';
+        outputEl.innerHTML = '<div class="empty">Start typing JSON in the left panel.</div>';
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        const flat = flatten(parsed);
+
+        statusEl.style.display = 'none';
+        render(flat);
+      } catch {
+        statusEl.style.display = 'block';
+        outputEl.innerHTML = '<div class="empty">Fix JSON syntax to see flattened output.</div>';
+      }
+    }
+
+    inputEl.addEventListener('input', update);
+    update();
+  </script>
+</body>
+</html>
