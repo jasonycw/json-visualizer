@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Flatten Viewer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100vh;
+    }
+
+    .panel {
+      padding: 16px;
+      overflow: auto;
+      border-right: 1px solid #1e293b;
+    }
+
+    .panel:last-child {
+      border-right: none;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .editor-wrap {
+      position: relative;
+      height: calc(100vh - 70px);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: #020617;
+      overflow: hidden;
+    }
+
+    pre, textarea {
+      margin: 0;
+      padding: 16px;
+      width: 100%;
+      height: 100%;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow: auto;
+    }
+
+    pre {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      color: #e5e7eb;
+    }
+
+    textarea {
+      position: absolute;
+      inset: 0;
+      resize: none;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: transparent;
+      caret-color: #ffffff;
+      z-index: 2;
+    }
+
+    .key { color: #93c5fd; }
+    .string { color: #86efac; }
+    .number { color: #fca5a5; }
+    .boolean { color: #fcd34d; }
+    .null { color: #c4b5fd; }
+
+    .alert {
+      display: none;
+      background: #7f1d1d;
+      color: #fecaca;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #111827;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #1f2937;
+      vertical-align: top;
+    }
+
+    th {
+      background: #1e293b;
+    }
+
+    .html-render {
+      border: 1px dashed #475569;
+      padding: 8px;
+      border-radius: 6px;
+      background: #0b1220;
+    }
+
+    .empty {
+      color: #94a3b8;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+      }
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid #1e293b;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <h2>JSON Input</h2>
+      <div class="editor-wrap">
+        <pre id="highlight"></pre>
+        <textarea id="jsonInput" spellcheck="false" placeholder="Paste JSON here..."></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Flattened Output</h2>
+      <div id="alert" class="alert">Input is not valid JSON.</div>
+      <div id="output" class="empty">Waiting for valid JSON...</div>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('jsonInput');
+    const highlight = document.getElementById('highlight');
+    const alertBox = document.getElementById('alert');
+    const output = document.getElementById('output');
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    }
+
+    function syntaxHighlight(json) {
+      return escapeHtml(json)
+        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"\s*:)/g, '<span class="key">$1</span>')
+        .replace(/: ("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*")/g, ': <span class="string">$1</span>')
+        .replace(/\b(true|false)\b/g, '<span class="boolean">$1</span>')
+        .replace(/\b(null)\b/g, '<span class="null">$1</span>')
+        .replace(/\b(-?\d+(\.\d+)?)\b/g, '<span class="number">$1</span>');
+    }
+
+    function flatten(obj, prefix = '', result = {}) {
+      if (Array.isArray(obj)) {
+        obj.forEach((item, index) => {
+          const key = prefix ? `${prefix}[${index}]` : `[${index}]`;
+          flatten(item, key, result);
+        });
+      } else if (obj !== null && typeof obj === 'object') {
+        Object.keys(obj).forEach(key => {
+          const newKey = prefix ? `${prefix}.${key}` : key;
+          flatten(obj[key], newKey, result);
+        });
+      } else {
+        result[prefix || 'value'] = obj;
+      }
+      return result;
+    }
+
+    function isHtmlString(value) {
+      return typeof value === 'string' && /<[^>]+>/.test(value);
+    }
+
+    function renderTable(flattened) {
+      let html = '<table><thead><tr><th>JSON Key</th><th>JSON Value</th></tr></thead><tbody>';
+      for (const [key, value] of Object.entries(flattened)) {
+        let renderedValue;
+        if (isHtmlString(value)) {
+          renderedValue = `<div class="html-render">${value}</div>`;
+        } else {
+          renderedValue = `<code>${escapeHtml(String(value))}</code>`;
+        }
+        html += `<tr><td><code>${escapeHtml(key)}</code></td><td>${renderedValue}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      output.innerHTML = html;
+    }
+
+    function processInput() {
+      const text = input.value;
+      highlight.innerHTML = syntaxHighlight(text);
+
+      if (!text.trim()) {
+        alertBox.style.display = 'none';
+        output.innerHTML = '<div class="empty">Waiting for valid JSON...</div>';
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(text);
+        const flat = flatten(parsed);
+        alertBox.style.display = 'none';
+        renderTable(flat);
+      } catch {
+        alertBox.style.display = 'block';
+        output.innerHTML = '<div class="empty">Please fix the JSON to see results.</div>';
+      }
+    }
+
+    input.addEventListener('input', processInput);
+    input.addEventListener('scroll', () => {
+      highlight.scrollTop = input.scrollTop;
+      highlight.scrollLeft = input.scrollLeft;
+    });
+
+    input.value = '{\n  "user": {\n    "name": "Alice",\n    "details": {\n      "age": 30,\n      "bio": "<strong>Hello World</strong>"\n    }\n  }\n}';
+
+    processInput();
+  </script>
+</body>
+</html>
