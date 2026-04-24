@@ -260,8 +260,15 @@
       if (typeof value === 'string' && looksLikeHtml(value)) {
         const wrapper = document.createElement('div');
 
-        const rendered = document.createElement('div');
-        rendered.innerHTML = value;
+        const rendered = document.createElement('iframe');
+        rendered.setAttribute('sandbox', '');
+        rendered.setAttribute('referrerpolicy', 'no-referrer');
+        rendered.loading = 'lazy';
+        rendered.style.width = '100%';
+        rendered.style.minHeight = '64px';
+        rendered.style.border = '1px solid #d4d7dc';
+        rendered.style.borderRadius = '6px';
+        rendered.srcdoc = value;
 
         const raw = document.createElement('pre');
         raw.className = 'muted';
