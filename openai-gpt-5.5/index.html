@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Flattener Viewer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --line: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22d3ee;
+      --danger-bg: #7f1d1d;
+      --danger-text: #fecaca;
+      --key-color: #7dd3fc;
+      --string-color: #86efac;
+      --number-color: #facc15;
+      --boolean-color: #f9a8d4;
+      --null-color: #d1d5db;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 100vh;
+      padding: 12px;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      letter-spacing: 0.3px;
+      color: var(--muted);
+    }
+
+    .editor-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .editor-highlight,
+    #editor {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      padding: 14px;
+      border: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      white-space: pre;
+      tab-size: 2;
+      font: inherit;
+      line-height: inherit;
+    }
+
+    .editor-highlight {
+      color: var(--text);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #editor {
+      resize: none;
+      background: transparent;
+      color: transparent;
+      caret-color: var(--text);
+      outline: none;
+    }
+
+    .token-key { color: var(--key-color); }
+    .token-string { color: var(--string-color); }
+    .token-number { color: var(--number-color); }
+    .token-boolean { color: var(--boolean-color); }
+    .token-null { color: var(--null-color); }
+
+    .right-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .alert {
+      display: none;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #b91c1c;
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      word-break: break-word;
+      font-size: 13px;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th:last-child, td:last-child { border-right: 0; }
+
+    th {
+      text-align: left;
+      background: #0b1220;
+      color: #cbd5e1;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .muted { color: var(--muted); }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+      .panel { min-height: 46vh; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel">
+      <h2>Input</h2>
+      <div class="editor-wrap">
+        <pre id="highlight" class="editor-highlight" aria-hidden="true"></pre>
+        <textarea id="editor" spellcheck="false" aria-label="JSON input"></textarea>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Flattened Output</h2>
+      <div class="right-body">
+        <div id="alert" class="alert">Input is not valid JSON.</div>
+        <div id="output" class="muted">Start typing JSON on the left.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const highlight = document.getElementById('highlight');
+    const alertBox = document.getElementById('alert');
+    const output = document.getElementById('output');
+
+    const starter = `{
+  "name": "Sample",
+  "meta": {
+    "count": 3,
+    "active": true,
+    "htmlSnippet": "<strong style=\\"color:#22d3ee\\">Hello HTML</strong>"
+  },
+  "tags": ["a", "b"],
+  "items": [{"id": 1}, {"id": 2}],
+  "nested": { "a": { "b": { "c": null } } }
+}`;
+
+    editor.value = starter;
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function syntaxHighlight(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(
+        /(\"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\\"])*\"\s*:?)|(\btrue\b|\bfalse\b)|(\bnull\b)|(-?\b\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?\b)/g,
+        (match, stringToken, boolToken, nullToken, numberToken) => {
+          if (stringToken) {
+            return /:$/.test(stringToken)
+              ? `<span class="token-key">${stringToken}</span>`
+              : `<span class="token-string">${stringToken}</span>`;
+          }
+          if (boolToken) return `<span class="token-boolean">${boolToken}</span>`;
+          if (nullToken) return `<span class="token-null">${nullToken}</span>`;
+          if (numberToken) return `<span class="token-number">${numberToken}</span>`;
+          return match;
+        }
+      );
+    }
+
+    function flatten(value, prefix = '', out = {}) {
+      if (Array.isArray(value)) {
+        if (value.length === 0 && prefix) out[prefix] = [];
+        value.forEach((item, i) => {
+          const key = prefix ? `${prefix}[${i}]` : `[${i}]`;
+          flatten(item, key, out);
+        });
+        return out;
+      }
+
+      if (value !== null && typeof value === 'object') {
+        const entries = Object.entries(value);
+        if (entries.length === 0 && prefix) out[prefix] = {};
+        for (const [k, v] of entries) {
+          const key = prefix ? `${prefix}.${k}` : k;
+          flatten(v, key, out);
+        }
+        return out;
+      }
+
+      if (prefix) {
+        out[prefix] = value;
+      } else {
+        out['$'] = value;
+      }
+      return out;
+    }
+
+    function looksLikeHtml(s) {
+      return /<\/?[a-z][\s\S]*>/i.test(s.trim());
+    }
+
+    function createCellValue(value) {
+      if (typeof value === 'string' && looksLikeHtml(value)) {
+        const wrapper = document.createElement('div');
+
+        const rendered = document.createElement('div');
+        rendered.innerHTML = value;
+
+        const raw = document.createElement('pre');
+        raw.className = 'muted';
+        raw.style.margin = '8px 0 0';
+        raw.style.whiteSpace = 'pre-wrap';
+        raw.textContent = value;
+
+        wrapper.appendChild(rendered);
+        wrapper.appendChild(raw);
+        return wrapper;
+      }
+
+      const span = document.createElement('span');
+      span.textContent = typeof value === 'string' ? value : JSON.stringify(value);
+      return span;
+    }
+
+    function renderTable(flatObject) {
+      const entries = Object.entries(flatObject);
+      if (entries.length === 0) {
+        output.innerHTML = '<div class="muted">Valid JSON but no leaf values to display.</div>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const tbody = document.createElement('tbody');
+
+      thead.innerHTML = '<tr><th style="width:45%">JSON Key</th><th>JSON Value</th></tr>';
+
+      for (const [key, value] of entries) {
+        const tr = document.createElement('tr');
+
+        const keyTd = document.createElement('td');
+        keyTd.textContent = key;
+
+        const valueTd = document.createElement('td');
+        valueTd.appendChild(createCellValue(value));
+
+        tr.appendChild(keyTd);
+        tr.appendChild(valueTd);
+        tbody.appendChild(tr);
+      }
+
+      table.appendChild(thead);
+      table.appendChild(tbody);
+
+      output.innerHTML = '';
+      output.appendChild(table);
+    }
+
+    function syncScroll() {
+      highlight.scrollTop = editor.scrollTop;
+      highlight.scrollLeft = editor.scrollLeft;
+    }
+
+    function update() {
+      highlight.innerHTML = syntaxHighlight(editor.value) + '\n';
+
+      try {
+        const parsed = JSON.parse(editor.value);
+        const flat = flatten(parsed);
+
+        alertBox.style.display = 'none';
+        renderTable(flat);
+      } catch {
+        alertBox.style.display = 'block';
+        output.innerHTML = '<div class="muted">Fix JSON syntax to view flattened output.</div>';
+      }
+
+      syncScroll();
+    }
+
+    editor.addEventListener('input', update);
+    editor.addEventListener('scroll', syncScroll);
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.setRangeText('  ', start, end, 'end');
+        update();
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
