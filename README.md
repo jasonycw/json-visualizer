@@ -21,4 +21,5 @@
 | [OpenAI GPT-5.3](https://chatgpt.com/share/69eb6d5a-fc2c-83ea-b6e5-56a3916c8461)                                 | [Go](https://jasonycw.github.io/json-visualizer/openai-gpt-5.3/)|
 | OpenAI GPT-5.4 Think                                                                                             | [Go](https://jasonycw.github.io/json-visualizer/openai-gpt-5.4-thinkg/)|
 | [OpenAI GPT-5.5](https://chatgpt.com/s/cd_69eb787f88fc81918b3a3f0c8eb78281)                                      | [Go](https://jasonycw.github.io/json-visualizer/openai-gpt-5.5/)|
-| CopilotCLI GPT-5.6 Sol                                      | [Go](https://jasonycw.github.io/json-visualizer/copilot-cli-gpt-5.6-sol//)|
+| CopilotCLI GPT-5.6 Sol                                      | [Go](https://jasonycw.github.io/json-visualizer/copilot-cli-gpt-5.6-sol/)|
+| CopilotCLI GPT-6 Astra                                      | [Go](https://jasonycw.github.io/json-visualizer/copilot-cli-gpt-6-astra/)|
