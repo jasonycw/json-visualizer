@@ -1,7 +1,7 @@
 # json-visualizer
 > Very straight forward prompt
 > ```
-> Create a single page HTML that can do the following without any external library and other public scripts, not CSS support library, nothing, just single HTML page in a folder with nothing else.
+> Create a single page HTML that can do the following without any external library and other public scripts, no CSS support library, nothing, just single HTML page in a folder with nothing else.
 > 
 > 1. There should be 2 columns layout
 > 
